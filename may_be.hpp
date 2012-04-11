@@ -95,12 +95,14 @@ public:
 
     MayBe &operator=(const MayBe &other) 
     {
-        //basic exception safety guarantee. 
-        Reset();
-        bool initialized = other.m_initialized;
-        if (initialized)
-            new (GetRaw())T(*other.GetRaw());
-        m_initialized = initialized;
+        if (m_initialized && other.m_initialized)
+            *(*this) = *other;
+        else if (m_initialized && !other.m_initialized)
+            Reset();
+        else if (!m_initialized && other.m_initialized) {
+            new (GetRaw()) T(*other);
+            m_initialized = true;
+        }
         return *this;
     }
 
