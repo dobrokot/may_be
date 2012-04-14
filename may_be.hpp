@@ -5,6 +5,20 @@
 #include <memory> 
 #include <assert.h>
 
+//------------------------ utility class for internal purposes ----------------------
+template<size_t> struct TAlignSwitch;
+template<> struct TAlignSwitch<1> { typedef char   type; };
+template<> struct TAlignSwitch<2> { typedef short  type; };
+template<> struct TAlignSwitch<4> { typedef float  type; };
+template<> struct TAlignSwitch<8> { typedef double type; };
+
+template <size_t i> struct TAlign {
+    enum { align = i%2 ? 1 : (i%4 ? 2 : (i%8 ? 4 : 8)) };
+    typedef typename TAlignSwitch<align>::type type;  
+};
+
+//------------------------ documentation and examples follow ----------------------
+
 ///для того, что бы удобней было вернуть из функции пустое или дефолтное значение, например
 /** \code
 MayBe<Point> f() {
@@ -13,6 +27,7 @@ MayBe<Point> f() {
 \endcode */
 enum TMayBeEmpty { MayBeEmpty };
 enum TMayBeDefault { MayBeDefault }; 
+
 
 ///класс для размещения объекта, который как может быть создан, так и нет.
 ///обеспечивает конструктор по умолчанию, конструктор копирования, присваивание, 
@@ -69,7 +84,7 @@ public:
     ///этот метод просто для того, что бы можно было посмотреть содержимое в отладчике и не было ambiguity между Get() и Get()const
     T *Get2() { return Get(); }
 
-    MayBe() : m_initialized(0) { }
+    MayBe() : m_initialized(false) { }
     
     MayBe(TMayBeDefault) //специально не explicit, что бы можно было неявно создать из MayBeDefault 
     {
@@ -140,7 +155,7 @@ public:
 #ifndef NDEBUG
         Get2(); //иначе метод не инстанцируется, и невозможно его вызвать из отладчика.
 
-        m_initialized = 0;
+        m_initialized = false;
         memset(&m_storage, 0xDD, sizeof(m_storage));
 #endif
     }
@@ -158,40 +173,33 @@ public:
 private:
     union TStorage
     {
-        double used_for_proper_align_only;
+        typename TAlign<sizeof(T)>::type used_for_proper_align_only;
         char buf[sizeof(T)];
     } m_storage;
 
-    int m_initialized;
+    bool m_initialized;
 
     T *GetRaw() { return reinterpret_cast<T*>(m_storage.buf); }
     const T *GetRaw() const { return reinterpret_cast<const T*>(m_storage.buf); }
 
 public:
-    void *MethodFor_MAYBE_INIT_Macro_GetInternalBufer() { return m_storage.buf; }
-    int &MethodFor_MAYBE_INIT_Macro_GetInternalBool() { return m_initialized; }
+    //internal methods, used by macro MAYBE_INIT
+    void *MAYBE_INIT_storage_buf() { return m_storage.buf; }
+    bool &MAYBE_INIT_initialized() { return m_initialized; }
     //если пользователь даст не тот тип, то вызовется не публичный метод, а private, что вызовет ошибку компиляции.
-    void MethodFor_MAYBE_INIT_Macro_EnsureTheSameType(T *) {}
+    void MAYBE_INIT_EnsureTheSameType(T *) {}
 private:
     template <class U>
-    int &MethodFor_MAYBE_INIT_Macro_EnsureTheSameType(const volatile U &);
+    bool &MAYBE_INIT_EnsureTheSameType(const volatile U &);
 };
 
 template <class T> MayBe<T> CreateMayBe(const T &x) { return MayBe<T>(x); }
 
 #define MAYBE_INIT(VAR, TYPE_PARAMS) \
 ((VAR).Reset(), \
- (VAR).MethodFor_MAYBE_INIT_Macro_EnsureTheSameType(  \
- new ((VAR).MethodFor_MAYBE_INIT_Macro_GetInternalBufer()) TYPE_PARAMS),     \
- (VAR).MethodFor_MAYBE_INIT_Macro_GetInternalBool() = true)            \
+ (VAR).MAYBE_INIT_EnsureTheSameType(  \
+ new ((VAR).MAYBE_INIT_storage_buf()) TYPE_PARAMS),     \
+ (VAR).MAYBE_INIT_initialized() = true)            \
 
-/* вот что происходит в этом макро:
-#define MAYBE_INIT(VAR, TYPE_PARAMS) 
-
-VAR.Reset(), 
-VAR.EnsureTheSameType(new (m_storage.buf) TYPE_PARAMS)),
-VAR.m_initialized = true
-
-*/ 
 
 #endif //MAY_BE_HEADER

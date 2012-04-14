@@ -2,50 +2,54 @@
 #include "may_be.hpp"
 #include <iostream>
 
-struct Point { //С‚РёРї,  РЅР°Рґ РєРѕС‚РѕСЂС‹Рј РјС‹ Р±СѓРґРµРј СЌРєСЃРїРµСЂРµРјРµРЅС‚РёСЂРѕРІР°С‚СЊ.
+struct Point { //тип,  над которым мы будем эксперементировать.
     float x, y;
     Point(float x, float y): x(x), y(y) {}
     Point(): x(0), y(0) {}
 };
 
 MayBe<Point> f1() {
-  return MayBeEmpty; //РІРµСЂРЅСѓС‚СЊ РїСѓСЃС‚РѕС‚Сѓ.
+  return MayBeEmpty; //вернуть пустоту.
 }
 
 MayBe<Point> f2() {
-  return MayBeDefault; //РІРµСЂРЅСѓС‚СЊ РѕР±СЉРµРєС‚, РёРЅРёС†РёР°Р»РёР·РёСЂРѕРІР°РЅРЅС‹Р№ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
+  return MayBeDefault; //вернуть объект, инициализированный по умолчанию
 }
 
 MayBe<int> f3() {
-  return CreateMayBe(7); //РІРµСЂРЅСѓС‚СЊ РєРѕРЅРєСЂРµС‚РЅРѕРµ Р·РЅР°С‡РµРЅРёРµ.
+  return CreateMayBe(7); //вернуть конкретное значение.
 }
 
+template <int i> struct X {
+    char a[i];
+};
 
 int main() {
     {
         MayBe<Point> point;
-        //РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃ РїР°СЂР°РјРµС‚СЂР°РјРё.
+        //инициализация с параметрами.
         if (true)
           MAYBE_INIT(point, Point(1, 2));
     }
 
     {
         MayBe<Point> point;
-        //РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ:
+        //Инициализация по умолчанию:
         if (true)
           point.ResetDefault();
     } 
 
-    //РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ РєРѕРїРёСЂРѕРІР°РЅРёРµРј СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ РѕР±СЉРµРєС‚Р°:
+    //Инициализация копированием существующего объекта:
     Point existing(3,4);
     MayBe<Point> point = CreateMayBe(existing);
       
-    //РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ:
-    if (Point *p = point.Get()) //РїРѕР»СѓС‡РёС‚СЊ СѓРєР°Р·Р°С‚РµР»СЊ, РІРѕР·РјРѕР¶РЅРѕ NULL
+    //использование:
+    if (Point *p = point.Get()) //получить указатель, возможно NULL
         std::cout << p->x;
 
     if (point)
         std::cout << point->x;
     std::cout << std::endl;
+   
+    std::cout << sizeof(MayBe<bool>) << ' ' << sizeof(MayBe<short>) << ' ' << sizeof(MayBe<float>) << ' ' << sizeof(MayBe<double>) << '\n';
 }
-
